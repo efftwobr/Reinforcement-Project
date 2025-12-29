@@ -24,12 +24,12 @@ class PolicyNet(nn.Module):
                 layers.append(activation())
             else:
                 layers.append(nn.Softmax(dim=1))
-        self.model = nn.Sequential(*layers)
+        self.net = nn.Sequential(*layers)
     def forward(self,x):
-        return self.model(x)
+        return self.net(x)
 
 
-class BaselineNN(nn.Module):
+class BaselineNet(nn.Module):
     def __init__(self, input_dim, hidden_layer_size, activation):
         super().__init__()
         sizes = [input_dim] + hidden_layer_size + [1]
@@ -38,41 +38,44 @@ class BaselineNN(nn.Module):
             layers.append(nn.Linear(sizes[i], sizes[i + 1]))
             if i < len(sizes) - 2:
                 layers.append(activation())
-        self.model = nn.Sequential(*layers)
+        self.net = nn.Sequential(*layers)
     def forward(self,x):
-        return self.model(x)
+        return self.net(x)
 
 
 class Agent:
-    def __init__(self,input_dim, output_dim, device, learning_rate,
-                 hidden_layer_size, activation = nn.ReLU, optimizer = torch.optim.Adam, ):
+    def __init__(self, input_dim, output_dim, device, learning_rate, gamma, record,
+                 hidden_layer_size, activation = nn.ReLU, optimizer = torch.optim.Adam):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.device = device
-        self.memory = []
-        self.build_model(learning_rate, optimizer, hidden_layer_size, activation)
-    def act(self, state):
+        self.gamma = gamma
+        self.recent_rewards = deque(maxlen=record)
+        self.recent_wins = deque(maxlen=record)
+        self.policy_net = PolicyNet(self.input_dim, self.output_dim, hidden_layer_size, activation).to(self.device)
+        self.policy_optimizer = optimizer(self.policy_net.parameters(), lr=learning_rate)
+        self.baseline_net = BaselineNet(self.input_dim, hidden_layer_size, activation).to(self.device)
+        self.baseline_optimizer = optimizer(self.baseline_net.parameters(), lr=learning_rate)
+    def act(self, state, eval_mode=False):
         state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
-        action_p = self.policy_model(state_tensor)
-        value = self.baseline_model(state_tensor)
-        action = int(torch.argmax(action_p, dim=1).item())
-        dist = torch.distributions.Categorical(action_p)
-        action_sample = dist.sample()
-        log_p = dist.log_prob(action_sample)
-        return action, [action_sample.item(), log_p, value]
-    def build_model(self, learning_rate, optimizer, hidden_layer_size, activation):
-        self.policy_model = PolicyNet(self.input_dim, self.output_dim, hidden_layer_size, activation)
-        self.policy_optimizer = optimizer(self.policy_model.parameters(), lr=learning_rate)
-        self.baseline_model = BaselineNN(self.input_dim, hidden_layer_size, activation)
-        self.baseline_optimizer = optimizer(self.baseline_model.parameters(), lr=learning_rate)
-    def update(self, rewards, log_ps, values, values_detach, gamma):
+        action_p = self.policy_net(state_tensor)
+        value = self.baseline_net(state_tensor)
+        if eval_mode:
+            action = int(torch.argmax(action_p, dim=1).item())
+            return action, []
+        else:
+            dist = torch.distributions.Categorical(action_p)
+            action = dist.sample()
+            log_p = dist.log_prob(action)
+            return action, [log_p, value]
+    def update(self, rewards, log_ps, values, values_detach):
         if len(rewards) == 1:
             pass
         else:
             gs = []
             g = 0
             for r in reversed(rewards):
-                g = r + gamma * g
+                g = r + self.gamma * g
                 gs.append(g)
             gs.reverse()
 
@@ -92,7 +95,7 @@ class Agent:
 
 
 
-def train_once(Agent, env, gamma, recent_rewards, recent_wins):
+def train_once(agent, env):
     state, _ = env.reset()
     log_ps = []
     rewards = []
@@ -101,7 +104,7 @@ def train_once(Agent, env, gamma, recent_rewards, recent_wins):
 
     done = False
     while not done:
-        _, [action, log_p, value] = Agent.act(state)
+        action, [log_p, value] = agent.act(state)
         log_ps.append(log_p)
         values = values + [value]
         values_detach = values_detach + [value.detach()]
@@ -110,38 +113,39 @@ def train_once(Agent, env, gamma, recent_rewards, recent_wins):
         rewards = rewards + [reward]
         state = next_state
 
-    recent_rewards.append(sum(rewards))
+    agent.recent_rewards.append(sum(rewards))
     is_win = 1 if sum(rewards) > 0 else 0
-    recent_wins.append(is_win)
+    agent.recent_wins.append(is_win)
 
-    Agent.update(rewards, log_ps, values, values_detach, gamma)
+    agent.update(rewards, log_ps, values, values_detach)
 
 
 if __name__ == "__main__":
-    hidden_layer_size = [128,256]
+    hidden_layer_size = [16, 32]
     learning_rate = 1e-4
     gamma = 0.99
     seed = 1
     episodes = 30000
     record = 1000
-    env_name = "WordleEnv100"
+    env_name = "WordleEnv10"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    recent_rewards = deque(maxlen=record)
-    recent_wins = deque(maxlen=record)
     torch.manual_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
 
     env, input_dim, output_dim = Wordle_Env.create_env(env_name)
-    Agent = Agent(input_dim, output_dim, device, learning_rate, hidden_layer_size)
+    print(f"Starting optimized training on {env_name}")
+    print(f"State Dim: {input_dim}, Action Dim: {output_dim}")
+    print(f"Using device: {device}")
+    agent = Agent(input_dim, output_dim, device, learning_rate, gamma, record, hidden_layer_size)
 
-    for episode in range(episodes):
-        train_once(Agent, env, gamma, recent_rewards, recent_wins)
+    for episode in range(1, episodes + 1):
+        train_once(agent, env)
         if episode % record == 0:
-            Wordle_Env.print_agent_train_log(recent_rewards, recent_wins, episode)
+            Wordle_Env.print_agent_train_log(agent.recent_rewards, agent.recent_wins, episode)
     print("Training finished.")
     print("\nRunning a test game with the trained agent...")
-    Wordle_Env.test_agent(env, Agent)
+    Wordle_Env.test_agent(env, agent)
 
     env.close()

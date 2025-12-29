@@ -30,7 +30,6 @@ def _load_words(words_path: str, limit: Optional[int] = None) -> List[str]:
         if limit is None:
             return lines
         return random.sample(lines, limit)
-
 def new_wordle_state(max_turns: int) -> WordleState:
     return np.array(
         [max_turns] + [0] * len(Chars) + [0, 1, 0] * Word_Len * len(Chars),
@@ -225,7 +224,7 @@ def test_agent(env: WordleEnvBase, Agent):
 
     step = 1
     while not done:
-        action, _ = Agent.act(state)
+        action, _ = Agent.act(state, eval_mode=True)
         guess_word = env.unwrapped.words[action]
         next_state, reward, terminated, truncated, _ = env.step(action)
         print(f"Step {step}: Guessed '{guess_word}', Reward: {reward}")
@@ -239,13 +238,14 @@ def test_agent(env: WordleEnvBase, Agent):
     else:
         print("Result: LOST")
 
-def print_agent_train_log(recent_rewards, recent_wins, episode):
+def print_agent_train_log(recent_rewards, recent_wins, episode, epsilon = None):
     avg_reward = np.mean(recent_rewards)
     win_rate = np.mean(recent_wins) * 100
 
     print(f"Episode: {episode:7d} | "
           f"Avg Reward: {avg_reward:2.2f} | "
-          f"Win Rate: {win_rate:3.2f}% | ")
+          f"Win Rate: {win_rate:3.2f}% "
+          + (f"｜Epsilon: {epsilon:.4f}" if epsilon else ""))
 
 
 class WordleEnv10(WordleEnvBase):
