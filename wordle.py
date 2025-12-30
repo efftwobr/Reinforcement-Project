@@ -5,11 +5,12 @@ import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 
-from . import state
-from .const import WORDLE_N, REWARD
+from state import *
+WORDLE_N = 5
+REWARD = 1
 
 dirname = os.path.dirname(__file__)
-VALID_WORDS_PATH = f'{dirname}/../../data/wordle_words.txt'
+VALID_WORDS_PATH = f'{dirname}/wordle_words.txt'
 
 
 def _load_words(limit: Optional[int] = None) -> List[str]:
@@ -42,7 +43,7 @@ class WordleEnvBase(gym.Env):
             self.frequencies = np.array(frequencies, dtype=np.float32) / sum(frequencies)
 
         self.action_space = spaces.Discrete(len(self.words))
-        dummy_state = state.new(max_turns)
+        dummy_state = new(max_turns)
         obs_shape = dummy_state.shape 
 
         self.observation_space = spaces.Box(
@@ -55,10 +56,10 @@ class WordleEnvBase(gym.Env):
         self.done = True
         self.goal_word = -1
 
-        self.state: state.WordleState = None
-        self.state_updater = state.update
+        self.state: WordleState = None
+        self.state_updater = update
         if self.mask_based_state_updates:
-            self.state_updater = state.update_mask
+            self.state_updater = update_mask
 
     def step(self, action: int):
         if self.done:
@@ -73,11 +74,11 @@ class WordleEnvBase(gym.Env):
         reward = 0
         if action == self.goal_word:
             self.done = True
-            if state.remaining_steps(self.state) == self.max_turns - 1:
+            if remaining_steps(self.state) == self.max_turns - 1:
                 reward = 0
             else:
                 reward = REWARD
-        elif state.remaining_steps(self.state) == 0:
+        elif remaining_steps(self.state) == 0:
             self.done = True
             reward = -REWARD
 
@@ -88,7 +89,7 @@ class WordleEnvBase(gym.Env):
 
     def reset(self, seed: Optional[int] = None, options=None):
         super().reset(seed=seed)
-        self.state = state.new(self.max_turns)
+        self.state = new(self.max_turns)
         self.done = False
         self.goal_word = np.random.randint(0, self.allowable_words)
         return self.state.astype(np.int32).copy(), {}
