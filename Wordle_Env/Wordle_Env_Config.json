@@ -1,0 +1,7 @@
+{
+  "Word_Len": 5,
+  "Chars": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+  "Reward": 10,
+  "Full_Words_Path": "Data/Full_Words.txt",
+  "Wordle_Words_Path": "Data/Wordle_Words.txt"
+}
