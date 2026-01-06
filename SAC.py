@@ -46,6 +46,10 @@ def soft_update(target, source, rho):
 #env_name = "WordleEnv10-v0"
 env_name = "WordleEnv100-v0"
 #env_name = "WordleEnv1000-v0"
+
+episodes = 20000
+
+
 env = gym.make(env_name)
 state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.n
@@ -54,6 +58,8 @@ policy = Policy(state_dim, action_dim)
 q1 = Critic(state_dim, action_dim)
 q2 = Critic(state_dim, action_dim)
 
+
+###### FILE SAVING ########
 
 #file1 = open("policy_model",'rb')
 #policy = pickle.load(file1)
@@ -65,6 +71,7 @@ q2 = Critic(state_dim, action_dim)
 #q2 = pickle.load(file3)
 #file3.close()
 
+###########################
 
 q1_target = Critic(state_dim, action_dim)
 q2_target = Critic(state_dim, action_dim)
@@ -81,7 +88,6 @@ tau = 0.005
 batch_size = 50
 buffer = []
 max_buffer = 10000
-episodes = 20000
 
 seed = 1
 torch.manual_seed(seed)
@@ -193,6 +199,9 @@ for episode in range(episodes):
 
 env.close()
 
+
+####### FILE LOADING ###############
+
 #file1 = open("policy_model",'wb')
 #pickle.dump(policy,file1)
 #file1.close()
@@ -202,15 +211,8 @@ env.close()
 #file3 = open("q2_model",'wb')
 #pickle.dump(q2,file3)
 #file3.close()
-file1 = open("policy_model2",'wb')
-pickle.dump(policy,file1)
-file1.close()
-file2 = open("q1_model2",'wb')
-pickle.dump(q1,file2)
-file2.close()
-file3 = open("q2_model2",'wb')
-pickle.dump(q2,file3)
-file3.close()
+
+############################
 
 plt.plot(average_returns)
 plt.ylabel ('Average reward in the last 100 episodes')
