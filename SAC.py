@@ -1,240 +1,197 @@
 import gymnasium as gym
 import torch
 import torch.nn as nn
-import torch.optim as optim
+import torch.nn.functional as F
 import numpy as np
 import random
-
 import __init__
+import matplotlib.pyplot as plt
+import pickle
 
-
-class NNpolicy(nn.Module):
-    def __init__(self,input_dim,output_dim):
+class Policy(nn.Module):
+    def __init__(self, state_dim, action_dim):
         super().__init__()
-        self.model = nn.Sequential(
-            nn.Linear(input_dim,16),
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, 128),
             nn.ReLU(),
-            nn.Linear(16,32),
+            nn.Linear(128, 64),
             nn.ReLU(),
-            nn.Linear(32,output_dim),
-            nn.Softmax(dim=1)
+            nn.Linear(64, action_dim)
         )
-    def forward(self,x):
-        return self.model(x)
 
-class NNcritic(nn.Module):
-    def __init__(self,input_dim,output_dim):
+    def forward(self, x):
+        return F.softmax(self.net(x), dim=1)
+
+
+class Critic(nn.Module):
+    def __init__(self, state_dim, action_dim):
         super().__init__()
-        self.model = nn.Sequential(
-            nn.Linear(input_dim+output_dim,16),
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, 128),
             nn.ReLU(),
-            nn.Linear(16,32),
+            nn.Linear(128, 64),
             nn.ReLU(),
-            nn.Linear(32,1)
+            nn.Linear(64, action_dim)
         )
-    def forward(self,x):
-        return self.model(x)
+
+    def forward(self, x):
+        return self.net(x)
+
+def soft_update(target, source, rho):
+    for tp, sp in zip(target.parameters(), source.parameters()):
+        tp.data.copy_((1-rho) * sp.data + rho * tp.data)
 
 
-def soft_update(target_NN,source_NN,rho):
-    with torch.no_grad():
-        for target_parameters, source_parameters in zip(target_NN.parameters(), source_NN.parameters()):
-            target_parameters.copy_(rho * source_parameters + (1 - rho) * target_parameters)
-    return target_NN
-
-
-
-learning_rate = 3e-4
-gamma = 0.95
-alpha = 0.001
-rho = 0.001
-
-seed = 1
-
-torch.manual_seed(seed)
-random.seed(seed)
-np.random.seed(seed)
-
+#env_name = "CartPole-v1"
 #env_name = "WordleEnv10-v0"
 env_name = "WordleEnv100-v0"
 #env_name = "WordleEnv1000-v0"
 env = gym.make(env_name)
+state_dim = env.observation_space.shape[0]
+action_dim = env.action_space.n
 
-input_dim = env.observation_space.shape[0]
-output_dim = env.action_space.n
-
-policy_model = NNpolicy(input_dim,output_dim)
-policy_optimizer = torch.optim.Adam(policy_model.parameters(), lr=learning_rate)
-
-critic1_model = NNcritic(input_dim,output_dim)
-critic1_optimizer = torch.optim.Adam(critic1_model.parameters(), lr=learning_rate)
-critic2_model = NNcritic(input_dim,output_dim)
-critic2_optimizer = torch.optim.Adam(critic2_model.parameters(), lr=learning_rate)
-critic1_target = NNcritic(input_dim,output_dim)
-critic2_target = NNcritic(input_dim,output_dim)
-
-critic1_target = soft_update(critic1_target,critic1_model,1)
-critic2_target = soft_update(critic2_target,critic2_model,1)
+policy = Policy(state_dim, action_dim)
+q1 = Critic(state_dim, action_dim)
+q2 = Critic(state_dim, action_dim)
 
 
+file1 = open("policy_model",'rb')
+policy = pickle.load(file1)
+file1.close()
+file2 = open("q1_model",'rb')
+q1 = pickle.load(file2)
+file2.close()
+file3 = open("q2_model",'rb')
+q2 = pickle.load(file3)
+file3.close()
 
-relay_buffer_batches = 10000
-relay_buffer_batch_size = 10
-update_batch_size = 10
-relay_buffer = []
+
+q1_target = Critic(state_dim, action_dim)
+q2_target = Critic(state_dim, action_dim)
+q1_target.load_state_dict(q1.state_dict())
+q2_target.load_state_dict(q2.state_dict())
+
+pi_opt = torch.optim.Adam(policy.parameters(), 3e-4)
+q1_opt = torch.optim.Adam(q1.parameters(), 3e-4)
+q2_opt = torch.optim.Adam(q2.parameters(), 3e-4)
+
+gamma = 0.99
+alpha = 0.2
+tau = 0.005
+batch_size = 64
+buffer = []
 max_buffer = 10000
+episodes = 10000
 
-for batch in range(relay_buffer_batches):
-    if batch % 100 == 0:
-        print(batch)
-    #print(batch)
+seed = 1
+torch.manual_seed(seed)
+random.seed(seed)
+np.random.seed(seed)
 
-    for episode in range(relay_buffer_batch_size):
-        state,_ = env.reset()
-        state = torch.FloatTensor(state).unsqueeze(0)
 
-        done = False
-        while not done:
-            action_p = policy_model(state)
-            dist = torch.distributions.Categorical(action_p)
-            action = dist.sample()
-            next_state, reward, terminated, truncated, _ = env.step(action.item())
-            done = terminated or truncated
 
-            relay_buffer.append([state,action,reward,next_state,done])
-            if len(relay_buffer) > max_buffer:
-                relay_buffer.pop(0)
-            state = torch.FloatTensor(next_state).unsqueeze(0)
+#Training
+returns = []
+average_returns= []
 
-    critic1_loss = 0
-    critic2_loss = 0
-    policy_loss = 0
-    for i in range(update_batch_size):
-        
-#        rand_index = random.randint(0, len(relay_buffer) - 1)
-#        sample = relay_buffer[rand_index]
-#
-#        state      = torch.FloatTensor(sample[0])
-#        action     = sample[1]
-#        reward     = sample[2]
-#        next_state = torch.FloatTensor(sample[3]).unsqueeze(0)
-#        done       = sample[4]
-#
-#        with torch.no_grad():
-#            probs = policy_model(next_state)
-#            log_probs = torch.log(probs + 1e-8)
-#
-#            q_vals = []
-#            for a in range(output_dim):
-#                one_hot = torch.zeros(output_dim)
-#                one_hot[a] = 1
-#                one_hot = one_hot.unsqueeze(0)
-#                q_vals.append(
-#                    torch.min(
-#                        critic1_target(torch.cat((next_state, one_hot), dim=1)),
-#                        critic2_target(torch.cat((next_state, one_hot), dim=1))
-#                    )
-#                )
-#
-#            q_vals = torch.cat(q_vals, dim=1)
-#            v_next = torch.sum(probs * (q_vals - alpha * log_probs))
-#            if done:
-#                y = reward
-#            else:
-#                y = reward + gamma * v_next
-#
-#            state = torch.Tensor.float(sample[0])
-#            b = np.zeros(output_dim)
-#            b[sample[1]] = 1
-#            concatenated_input2 = torch.cat((state, torch.Tensor.float(torch.from_numpy(np.array([b])))),dim=1)
-#        critic1_loss += (1/update_batch_size) * ((critic1_model(concatenated_input2)-y)**2)
-#        critic2_loss += (1/update_batch_size) * ((critic2_model(concatenated_input2)-y)**2)
-#        
-#        
-#        action_probs = policy_model(state)              # [1, A]
-#        log_probs = torch.log(action_probs + 1e-8)
-#
-#        q_vals = []
-#        for a in range(output_dim):
-#            one_hot = torch.zeros(output_dim)
-#            one_hot[a] = 1
-#            one_hot = one_hot.unsqueeze(0)
-#            q_vals.append(
-#                torch.min(
-#                critic1_model(torch.cat((state, one_hot), dim=1)),
-#                critic2_model(torch.cat((state, one_hot), dim=1))
-#                )
-#            )   
-#
-#        q_vals = torch.cat(q_vals, dim=1)               # [1, A]
-#
-#        policy_loss += (1/update_batch_size) * torch.sum(
-#            action_probs * (alpha * log_probs - q_vals)
-#        )
-        
-        with torch.no_grad():
-            rand_index = random.randint(0,len(relay_buffer)-1)
-            sample = relay_buffer[rand_index]
-            reward = sample[2]
-            if sample[4]:
-                y = reward
-            else:
-                next_state = torch.Tensor.float(torch.from_numpy(np.array([sample[3]]))) 
-                second_action_dist = policy_model(next_state)
-                dist = torch.distributions.Categorical(second_action_dist)
-                second_action = dist.sample()
-                a = np.zeros(output_dim)
-                a[second_action] = 1
-                concatenated_input = torch.cat((next_state, torch.Tensor.float(torch.from_numpy(np.array([a])))),dim=1)
-                y = reward + gamma * (torch.min(critic1_target(concatenated_input),critic2_target(concatenated_input))
-                                      - alpha * torch.log(second_action_dist[0,second_action]))
-            state = torch.Tensor.float(sample[0])
-            b = np.zeros(output_dim)
-            b[sample[1]] = 1
-            concatenated_input2 = torch.cat((state, torch.Tensor.float(torch.from_numpy(np.array([b])))),dim=1)
-        critic1_loss += (1/update_batch_size) * ((critic1_model(concatenated_input2)-y)**2)
-        critic2_loss += (1/update_batch_size) * ((critic2_model(concatenated_input2)-y)**2)        
-        state = torch.Tensor.float(sample[0])
-        chosen_action_dist = policy_model(state)
-        dist = torch.distributions.Categorical(chosen_action_dist)
-        chosen_action = dist.sample()
-        c = np.zeros(output_dim)
-        c[chosen_action] = 1
-        critic1_policy_estimate = critic1_model(torch.cat((state, torch.Tensor.float(torch.Tensor(np.array([c])))),dim=1))
-        critic2_policy_estimate = critic2_model(torch.cat((state, torch.Tensor.float(torch.Tensor(np.array([c])))),dim=1))
-        policy_loss += -(1/update_batch_size) * (torch.min(critic1_policy_estimate,critic2_policy_estimate))- alpha* torch.log(policy_model(state)[0,chosen_action])
+for episode in range(episodes):
+    state, _ = env.reset()
+    done, ep_ret = False, 0
+    guesses = 0
 
-    critic1_optimizer.zero_grad()
-    critic2_optimizer.zero_grad()
-    policy_optimizer.zero_grad()
-    critic1_loss.backward()
-    critic2_loss.backward()
-    policy_loss.backward()
-    critic1_optimizer.step()
-    critic2_optimizer.step()
-    policy_optimizer.step()
-    soft_update(critic1_target,critic1_model,rho)
-    soft_update(critic2_target,critic2_model,rho)
+    while not done:
+        state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
+        dist = policy(state_tensor)
+        action = torch.distributions.Categorical(dist).sample().item()
+        guesses +=1
 
-count2 = 0
-for i in range(100):
-    state,_ = env.reset()
-    state = torch.FloatTensor(state).unsqueeze(0)
-    count = 0
-    done = False
-    while not(done):
-        count += 1
-        action_p = policy_model(state)
-        #print(action_p)
-        dist = torch.distributions.Categorical(action_p)
-        action = dist.sample()
-        #print('action is',action)
-        next_state, reward, terminated, truncated, _ = env.step(action.item())
+        next_state, reward, terminated, truncated, _ = env.step(action)
         done = terminated or truncated
-        state = torch.FloatTensor(next_state).unsqueeze(0)
-    print('Score is',count)
-    if count < 6:
-        count2 += 1
-print('count2 is',count2)
+        buffer.append((state, action, reward, next_state, done))
+        if len(buffer) > max_buffer:
+            buffer.pop(0)
+
+        state = next_state
+        ep_ret += reward
+
+        if len(buffer) < batch_size:
+            continue
+
+        #Sample batch
+        batch = random.sample(buffer, batch_size)
+        batch_state, batch_action, batch_reward, batch_next_state, batch_done = map(np.array, zip(*batch))
+
+        batch_state  = torch.tensor(batch_state,  dtype=torch.float32)
+        batch_next_state = torch.tensor(batch_next_state, dtype=torch.float32)
+        batch_action  = torch.tensor(batch_action).unsqueeze(1)
+        batch_reward  = torch.tensor(batch_reward, dtype=torch.float32)
+        batch_done  = torch.tensor(batch_done, dtype=torch.float32)
+
+        #Critic target
+        with torch.no_grad():
+            next_dist = policy(batch_next_state)
+            log_next_dist = torch.log(next_dist + 1e-8)
+            min_q_target = torch.min(q1_target(batch_next_state), q2_target(batch_next_state))
+            v_next = (next_dist * (min_q_target - alpha * log_next_dist)).sum(dim=1)
+            y = batch_reward + gamma * (1 - batch_done) * v_next
+
+        #Critic update
+        q1_pred = q1(batch_state).gather(1, batch_action).squeeze()
+        q2_pred = q2(batch_state).gather(1, batch_action).squeeze()
+
+        q1_loss = F.mse_loss(q1_pred, y)
+        q2_loss = F.mse_loss(q2_pred, y)
+
+        q1_opt.zero_grad()
+        q1_loss.backward()
+        q1_opt.step()
+        q2_opt.zero_grad() 
+        q2_loss.backward() 
+        q2_opt.step()
+
+        #Policy update
+        dist = policy(batch_state)
+        log_dist = torch.log(dist + 1e-8)
+        min_q = torch.min(q1(batch_state), q2(batch_state))
+        pi_loss = (dist * (alpha * log_dist - min_q)).sum(dim=1).mean()
+
+        pi_opt.zero_grad()
+        pi_loss.backward()
+        pi_opt.step()
+
+        #Target update
+        soft_update(q1_target, q1, tau)
+        soft_update(q2_target, q2, tau)
+
+    #print(f"Episode {episode}, Return {ep_ret}")
+    #returns.append(ep_ret)
+    #if ep_ret == 500:
+    #    break
+
+    returns.append(guesses)
+    if episode < 100:
+        mean_return = np.mean(returns)
+        average_returns.append(mean_return)
+    else:
+        mean_return = np.mean(returns[-100:-1])
+        average_returns.append(mean_return)        
+    #print(f"Episode: {episode}, Guesses: {guesses}, Average: {mean_return}")
+    if episode % 100 == 0:
+        print(f"Episode: {episode}, Guesses: {guesses}, Average: {mean_return}")
+
+
+
 env.close()
 
+file1 = open("policy_model",'wb')
+pickle.dump(policy,file1)
+file1.close()
+file2 = open("q1_model",'wb')
+pickle.dump(q1,file2)
+file2.close()
+file3 = open("q2_model",'wb')
+pickle.dump(q2,file3)
+file3.close()
+
+plt.plot(average_returns)
+plt.show()

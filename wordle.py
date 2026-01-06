@@ -7,7 +7,7 @@ import numpy as np
 
 from state import *
 WORDLE_N = 5
-REWARD = 1
+REWARD = 10
 
 dirname = os.path.dirname(__file__)
 VALID_WORDS_PATH = f'{dirname}/wordle_words.txt'
