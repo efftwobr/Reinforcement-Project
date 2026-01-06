@@ -1,0 +1,6 @@
+env,episodes,win_rate,avg_steps,top_first
+WordleEnv10,1000,1.0000,2.2650,NOBLE:1000
+WordleEnv100WithMask,1000,1.0000,3.7280,FRESH:1000
+WordleEnv100,1000,1.0000,3.5200,SHEER:1000
+WordleEnvFull,1000,0.6430,5.4390,ELIAD:1000
+WordleEnvReal,1000,0.9070,4.8160,STRAY:1000

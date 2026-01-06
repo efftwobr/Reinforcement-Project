@@ -1,0 +1,10 @@
+Episode 1 | win=1 | first=STRAY | guesses=STRAY,CHUNK,MEDIC,VIXEN,WINCE | candidate_counts=2309,301,115,37,9
+Episode 2 | win=1 | first=STRAY | guesses=STRAY,WORDY,WORRY | candidate_counts=2309,21,1
+Episode 3 | win=1 | first=STRAY | guesses=STRAY,CHEAP,GONAD,MACAW,PECAN | candidate_counts=2309,47,32,11,2
+Episode 4 | win=1 | first=STRAY | guesses=STRAY,CHUNK,GAMMA,REFER,TROLL,ABORT | candidate_counts=2309,1165,398,227,46,4
+Episode 5 | win=1 | first=STRAY | guesses=STRAY,CHUNK,DIGIT,DETOX | candidate_counts=2309,447,101,4
+Episode 6 | win=1 | first=STRAY | guesses=STRAY,CHUNK,ELBOW,MIDGE,DRIER,DRIED | candidate_counts=2309,515,156,31,9,1
+Episode 7 | win=1 | first=STRAY | guesses=STRAY,LEGGY,BOOZY,WHINY,MILKY,DILLY | candidate_counts=2309,111,66,35,19,2
+Episode 8 | win=1 | first=STRAY | guesses=STRAY,BOSSY,DUSKY,FISHY | candidate_counts=2309,131,8,2
+Episode 9 | win=1 | first=STRAY | guesses=STRAY,LEGGY,LOBBY,LOWLY,LOOPY | candidate_counts=2309,111,5,2,1
+Episode 10 | win=1 | first=STRAY | guesses=STRAY,STINT,STEEP,STOOL,STUFF | candidate_counts=2309,28,14,5,2

@@ -1,0 +1,10 @@
+Episode 1 | win=1 | first=SHEER | guesses=SHEER,DOLLY,POINT,TOPIC | candidate_counts=100,18,2,1
+Episode 2 | win=1 | first=SHEER | guesses=SHEER,SPOOL | candidate_counts=100,11
+Episode 3 | win=1 | first=SHEER | guesses=SHEER,FLEET | candidate_counts=100,1
+Episode 4 | win=1 | first=SHEER | guesses=SHEER,CHEEK | candidate_counts=100,1
+Episode 5 | win=1 | first=SHEER | guesses=SHEER,DOLLY,WAIVE,GRAZE,ARGUE | candidate_counts=100,41,16,3,1
+Episode 6 | win=1 | first=SHEER | guesses=SHEER,SPOOL,SAINT,SCUBA | candidate_counts=100,11,5,1
+Episode 7 | win=1 | first=SHEER | guesses=SHEER,DOLLY,TUNIC,PAGAN | candidate_counts=100,18,4,1
+Episode 8 | win=1 | first=SHEER | guesses=SHEER,SLICE,SURGE | candidate_counts=100,15,1
+Episode 9 | win=1 | first=SHEER | guesses=SHEER,ROWER,ANGER | candidate_counts=100,7,6
+Episode 10 | win=1 | first=SHEER | guesses=SHEER,DOLLY,WAIVE,HINGE | candidate_counts=100,29,8,1
