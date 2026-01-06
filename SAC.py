@@ -55,15 +55,15 @@ q1 = Critic(state_dim, action_dim)
 q2 = Critic(state_dim, action_dim)
 
 
-file1 = open("policy_model",'rb')
-policy = pickle.load(file1)
-file1.close()
-file2 = open("q1_model",'rb')
-q1 = pickle.load(file2)
-file2.close()
-file3 = open("q2_model",'rb')
-q2 = pickle.load(file3)
-file3.close()
+#file1 = open("policy_model",'rb')
+#policy = pickle.load(file1)
+#file1.close()
+#file2 = open("q1_model",'rb')
+#q1 = pickle.load(file2)
+#file2.close()
+#file3 = open("q2_model",'rb')
+#q2 = pickle.load(file3)
+#file3.close()
 
 
 q1_target = Critic(state_dim, action_dim)
@@ -78,10 +78,10 @@ q2_opt = torch.optim.Adam(q2.parameters(), 3e-4)
 gamma = 0.99
 alpha = 0.2
 tau = 0.005
-batch_size = 64
+batch_size = 50
 buffer = []
 max_buffer = 10000
-episodes = 10000
+episodes = 20000
 
 seed = 1
 torch.manual_seed(seed)
@@ -93,10 +93,13 @@ np.random.seed(seed)
 #Training
 returns = []
 average_returns= []
+guess_numbers = []
+average_guess_numbers = []
 
 for episode in range(episodes):
     state, _ = env.reset()
-    done, ep_ret = False, 0
+    done = False
+    episode_returns = 0
     guesses = 0
 
     while not done:
@@ -112,7 +115,7 @@ for episode in range(episodes):
             buffer.pop(0)
 
         state = next_state
-        ep_ret += reward
+        episode_returns += reward
 
         if len(buffer) < batch_size:
             continue
@@ -163,35 +166,69 @@ for episode in range(episodes):
         soft_update(q1_target, q1, tau)
         soft_update(q2_target, q2, tau)
 
-    #print(f"Episode {episode}, Return {ep_ret}")
-    #returns.append(ep_ret)
-    #if ep_ret == 500:
-    #    break
-
-    returns.append(guesses)
-    if episode < 100:
-        mean_return = np.mean(returns)
-        average_returns.append(mean_return)
+    if env_name == "CartPole-v1":
+        print(f"Episode {episode}, Return {episode_returns}")
+        returns.append(episode_returns)
+        #if episode_returns == 500:
+        #    break
     else:
-        mean_return = np.mean(returns[-100:-1])
-        average_returns.append(mean_return)        
-    #print(f"Episode: {episode}, Guesses: {guesses}, Average: {mean_return}")
-    if episode % 100 == 0:
-        print(f"Episode: {episode}, Guesses: {guesses}, Average: {mean_return}")
+
+        guess_numbers.append(guesses)
+        if episode_returns > 0:
+            episode_returns = 10
+        returns.append(episode_returns)
+        if episode < 100:
+            mean_guess_number = np.mean(guess_numbers)
+            average_guess_numbers.append(mean_guess_number)
+        else:
+            mean_guess_number = np.mean(guess_numbers[-100:-1])
+            average_guess_numbers.append(mean_guess_number)
+            average_return = np.mean(returns[-100:-1])
+            average_returns.append(average_return)        
+        #print(f"Episode: {episode}, Guesses: {guesses}, Average: {mean_return}")
+        if episode % 100 == 0 and episode > 0:
+            print(f"Episode: {episode}, Guesses: {guesses}, Average guesses: {mean_guess_number}, Reward average: {average_return}")
 
 
 
 env.close()
 
-file1 = open("policy_model",'wb')
+#file1 = open("policy_model",'wb')
+#pickle.dump(policy,file1)
+#file1.close()
+#file2 = open("q1_model",'wb')
+#pickle.dump(q1,file2)
+#file2.close()
+#file3 = open("q2_model",'wb')
+#pickle.dump(q2,file3)
+#file3.close()
+file1 = open("policy_model2",'wb')
 pickle.dump(policy,file1)
 file1.close()
-file2 = open("q1_model",'wb')
+file2 = open("q1_model2",'wb')
 pickle.dump(q1,file2)
 file2.close()
-file3 = open("q2_model",'wb')
+file3 = open("q2_model2",'wb')
 pickle.dump(q2,file3)
 file3.close()
 
 plt.plot(average_returns)
+plt.ylabel ('Average reward in the last 100 episodes')
+plt.xlabel ('Episode')
+if env_name == "WordleEnv10-v0":
+    plt.title ('SAC 10 Word Wordle Rewards')
+elif env_name == "WordleEnv100-v0":
+    plt.title ('SAC 100 Word Wordle Rewards')
+elif env_name == "WordleEnv1000-v0":
+    plt.title ('SAC 1000 Word Wordle Rewards')
+plt.show()
+plt.plot(average_guess_numbers)
+plt.ylabel ('Average guesses required in the last 100 episodes')
+plt.xlabel ('Episode')
+if env_name == "WordleEnv10-v0":
+    plt.title ('SAC 10 Word Wordle Guesses')
+elif env_name == "WordleEnv100-v0":
+    plt.title ('SAC 100 Word Wordle Guesses')
+elif env_name == "WordleEnv1000-v0":
+    plt.title ('SAC 1000 Word Wordle Guesses')
 plt.show()

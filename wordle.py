@@ -77,7 +77,7 @@ class WordleEnvBase(gym.Env):
             if remaining_steps(self.state) == self.max_turns - 1:
                 reward = 0
             else:
-                reward = REWARD
+                reward = REWARD * (remaining_steps(self.state))/(self.max_turns - 1)
         elif remaining_steps(self.state) == 0:
             self.done = True
             reward = -REWARD
